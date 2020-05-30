@@ -1,5 +1,11 @@
 import React from "react";
 import { FeatureCollection } from "geojson";
+import {
+  Map as LeafletMap,
+  TileLayer,
+  GeoJSON,
+} from "react-leaflet";
+import { CircleMarker } from "leaflet";
 
 interface GeojsonLayer {
   /** Name of the table within the Airtable base */
@@ -64,6 +70,38 @@ export class AirtableMap extends React.Component<Props, State> {
   }
 
   render() {
-    return <div>{this.state.isLoading ? "loading…" : <div>Map!</div>}</div>;
+    const position = [40.7028, -73.8357] as any;
+
+    if (this.state.isLoading) {
+      return <div>Loading…</div>;
+    }
+
+    return (
+      <LeafletMap center={position} zoom={11}>
+        <TileLayer
+          attribution=' &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+        />
+        {/* <Marker position={position}>
+          <Popup>
+            A pretty CSS3 popup. <br /> Easily customizable.
+          </Popup>
+        </Marker> */}
+        {this.state.layers.map((layer) => (
+          <GeoJSON
+            data={layer}
+            //@ts-ignore
+            pointToLayer={(point, latLng) => {
+              console.log(point);
+              return new CircleMarker(latLng, {
+                radius: 10,
+                weight: 1,
+                color: point.properties["marker-color"] || "red",
+              });
+            }}
+          />
+        ))}
+      </LeafletMap>
+    );
   }
 }

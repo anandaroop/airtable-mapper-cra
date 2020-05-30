@@ -4,18 +4,19 @@ import { AirtableMap } from "./AirtableMap";
 function App() {
   const layers = [
     {
-      layerName: "Volunteers",
-      tableName: "Volunteers",
-      viewName: "Map",
+      layerName: "Deliveries",
+      tableName: "Coordinated delivery shifts",
+      viewName: "Queens Together 5/30",
       idFieldName: "Unique ID",
       geocodedFieldName: "Geocode cache",
     },
     {
-      layerName: "Requests",
-      tableName: "Requests",
-      viewName: "Map",
+      layerName: "Drivers",
+      tableName: "Volunteers",
+      viewName: "Delivery Drivers Map",
       idFieldName: "Unique ID",
       geocodedFieldName: "Geocode cache",
+      // clusterCount: 10,
     },
   ];
 
