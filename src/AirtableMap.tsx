@@ -1,13 +1,52 @@
-import React from "react";
+import React, { ReactElement } from "react";
 import { FeatureCollection } from "geojson";
-import {
-  Map as LeafletMap,
-  TileLayer,
-  GeoJSON,
-} from "react-leaflet";
+import { Map as LeafletMap, TileLayer, GeoJSON } from "react-leaflet";
 import { CircleMarker } from "leaflet";
 
-interface GeojsonLayer {
+interface AirtableMapProps {
+  children: AirtableMapLayer[];
+}
+
+export class AirtableMap extends React.Component<AirtableMapProps> {
+  state = {
+    isLoading: true,
+    layers: [],
+  };
+
+  render() {
+    const position = [40.7028, -73.8357] as any;
+    return (
+      <LeafletMap center={position} zoom={12}>
+        <TileLayer
+          attribution=' &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+        />
+        {this.props.children}
+      </LeafletMap>
+    );
+  }
+}
+
+interface AirtableMapLayerProps {
+  /** Display name for layer */
+  name: string;
+
+  /** Color for this layer's markers. (May be overriden by a `marker-color` property of the Feature) */
+  color?: string;
+
+  /** Radius of circle marker. */
+  radius?: number;
+
+  /** Airtable GeoJSON query details */
+  airtable?: AirtableGeoJSONSpec;
+}
+
+interface AirtableMapLayerState {
+  isLoading: boolean;
+  data: FeatureCollection | null;
+}
+
+interface AirtableGeoJSONSpec {
   /** Name of the table within the Airtable base */
   tableName: string;
 
@@ -24,84 +63,52 @@ interface GeojsonLayer {
   clusterCount?: number;
 }
 
-export interface Props {
-  layers: GeojsonLayer[];
-}
-
-interface State {
-  isLoading: boolean;
-  layers: FeatureCollection[];
-}
-
-export class AirtableMap extends React.Component<Props, State> {
+export class AirtableMapLayer extends React.Component<
+  AirtableMapLayerProps,
+  AirtableMapLayerState
+> {
   state = {
-    isLoading: true,
-    layers: [],
+    isLoading: false,
+    data: null,
   };
-
-  constructor(props: Props) {
-    super(props);
-  }
 
   async componentDidMount() {
     const url =
       "https://us-central1-airtable2geojson.cloudfunctions.net/qdsama-hub";
 
-    const fetches = this.props.layers.map((layer) => {
-      const body = { ...layer };
-      const options: RequestInit = {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      };
-      return fetch(url, options);
-    });
+    const options: RequestInit = {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(this.props.airtable),
+    };
 
-    Promise.all(fetches).then((responses) => {
-      Promise.all(responses.map((r) => r.json())).then((featureCollections) => {
-        this.setState({
-          isLoading: false,
-          layers: featureCollections,
-        });
-      });
-    });
+    const response = await fetch(url, options);
+    const json = await response.json();
+
+    this.setState({ data: json });
   }
 
   render() {
-    const position = [40.7028, -73.8357] as any;
-
-    if (this.state.isLoading) {
-      return <div>Loading…</div>;
+    if (this.state.data === null) {
+      return null;
     }
 
     return (
-      <LeafletMap center={position} zoom={11}>
-        <TileLayer
-          attribution=' &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-        />
-        {/* <Marker position={position}>
-          <Popup>
-            A pretty CSS3 popup. <br /> Easily customizable.
-          </Popup>
-        </Marker> */}
-        {this.state.layers.map((layer) => (
-          <GeoJSON
-            data={layer}
-            //@ts-ignore
-            pointToLayer={(point, latLng) => {
-              console.log(point);
-              return new CircleMarker(latLng, {
-                radius: 10,
-                weight: 1,
-                color: point.properties["marker-color"] || "red",
-              });
-            }}
-          />
-        ))}
-      </LeafletMap>
+      <GeoJSON
+        data={this.state.data!}
+        pointToLayer={(point, latLng) => {
+          return new CircleMarker(latLng, {
+            radius: this.props.radius || 10,
+            weight: 0.5,
+            color: point.properties["marker-color"] || this.props.color || "blue",
+            fillOpacity: 0.4,
+          }).bindPopup(
+            `${this.props.airtable?.tableName} ID: ${point.properties.id}`
+          );
+        }}
+      />
     );
   }
 }
